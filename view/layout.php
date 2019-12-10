@@ -10,9 +10,11 @@
   <title>D4E1 - WCA <?php echo $title;?></title>
 </head>
 <body>
-  <header class="header">
-    <h1 class="header__title">Whatsapp conversation analyser</h1>
-  </header>
+  <a href="index.php">
+    <header class="header">
+      <h1 class="header__title">Whatsapp conversation analyser</h1>
+    </header>
+  </a>
   <main class="content">
     <?php if (!empty($_SESSION['info'])): ?>
       <div class="session-message info"><?php echo $_SESSION['info']; ?></div>

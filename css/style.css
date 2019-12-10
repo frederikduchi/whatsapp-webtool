@@ -34,6 +34,10 @@ strong{
   display: none;
 }
 
+.has-js .upload-button{
+  display: none;
+}
+
 .header{
   background-color: #000000;
   background-image: url("../assets/img/logo.jpg");
@@ -84,12 +88,65 @@ strong{
   margin-left: 1rem;
 }
 
-input[type="file"]{
+.button{
     background-color:#373737;
     color: #ffffff;
     font-family: Lato, sans-serif;
-    padding: 1rem;
+    padding: 1rem 2rem;
+    font-size: 1.6rem;
+    border: none;
+    text-transform: capitalize;
+    display: block;
+    margin: 0.5rem 0;
 }
+
+.info-box{
+  padding: 1rem;
+  margin: 1rem 0;
+  font-weight: 700;
+}
+
+.error{
+  color: #d8000c;
+  background-color: #ffd2d2;
+}
+
+.error::before{
+  content: "\02717";
+  font-size: 2rem;
+  padding-right: 1rem;
+}
+
+.success{
+  color: #4f8a10;
+  background-color: #dff2bf;
+}
+
+.success::before{
+  content: "\02713";
+  font-size: 2rem;
+  padding-right: 1rem;
+}
+
+.info{
+  color: #00529b;
+  background-color: #bde5f8;
+}
+
+.info::before{
+  content: "\02139";
+  font-size: 2rem;
+  padding-right: 1rem;
+}
+
+.list{
+  list-style-type: disc;
+  list-style-position: inside;
+  margin-left: 1rem;
+  font-size: 1.2rem;
+}
+
+
 /* titel 
 
 color: rgba(55,71,79,1); // #37474F

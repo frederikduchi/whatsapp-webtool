@@ -28,12 +28,12 @@ class ConversationDAO extends DAO {
 
   public function validate($data){
     $errors = [];
-    if (empty($data['title'])) {
+    if(empty($data['title'])) {
       $errors['title'] = 'Geen titel gevonden voor de conversatie';
     }
-    if (empty($data['path'])) {
+    if(empty($data['path'])) {
       $errors['path'] = 'Geen path gevonden voor de conversatie';
-    }
+    }    
     return $errors;
   }
 

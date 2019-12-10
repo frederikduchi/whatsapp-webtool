@@ -3,11 +3,7 @@ session_start();
 
 ini_set('display_errors', true);
 error_reporting(E_ALL);
-/*
-unset($_SESSION['upload-success']);
-unset($_SESSION['upload-next']);
-unset($_SESSION['error']);
-*/
+
 $routes = array(
   'home' => array(
     'controller' => 'Upload',
@@ -15,7 +11,7 @@ $routes = array(
   ),
   'upload' => array(
     'controller' => 'Upload',
-    'action' => 'upload'
+    'action' => 'result'
   ),
   'conversation' => array(
     'controller' => 'Conversation',

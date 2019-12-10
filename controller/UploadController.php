@@ -1,55 +1,60 @@
 <?php
 
 require_once __DIR__ . '/Controller.php';
+require_once __DIR__ . '/Helpers/Parser.php';
+
 require_once __DIR__ . '/../dao/ConversationDAO.php';
+require_once __DIR__ . '/../dao/MessageDAO.php';
+require_once __DIR__ . '/../dao/MediaDAO.php';
+require_once __DIR__ . '/../dao/EmojiDAO.php';
 
 class UploadController extends Controller {
 
   function __construct() {
+    $this->parser = new Parser();
+
     $this->conversationDAO = new ConversationDAO();
+    $this->messageDAO = new MessageDAO();
+    $this->mediaDAO = new MediaDAO();
+    $this->emojiDAO = new EmojiDAO();
   }
 
   public function index() {
     $this->set('title', 'Home');
   }
 
-  public function upload(){
-    $this->set('title', 'Uploading...');
-
-    // init a session for status updates
-    if (!isset($_SESSION['upload-success'])) {
-      $_SESSION['upload-success'] = [];
-    }
+  public function result(){
+    $this->set('title', 'Upload');
+    $error = '';
+    $success = '';
 
     // Step 1: upload the file to a newly created folder
     if($_SERVER['REQUEST_METHOD'] === 'POST'){
       // check if a file is found
-      if(isset($_FILES['conversation-zip'])){
-        $file = $_FILES['conversation-zip'];
+      if(!empty($_FILES['conversation-zip']['name'])){
+        $file = $_FILES['conversation-zip'];      
       
         // getting file info
-        $file_name = explode('.zip', $file['name'])[0];
-        $file_tempfolder = explode('tmp/',$file['tmp_name'])[1];
+        $file_name = pathinfo($file['name'])['filename'];
+        $file_tempfolder = explode('/tmp/',$file['tmp_name'])[1];
         
         // check if it is a real zip file
-        if($file['type']=== 'application/zip' && strlen($file_name) < strlen($file['name'])){
+        if($file['type']=== 'application/zip' && pathinfo($file['name'])['extension'] === 'zip'){
           // creating a directory to upload the file
           if(mkdir('./uploads/' . $file_tempfolder)){
             // moving the file if no errors were found
               $path = './uploads/' . $file_tempfolder . '/' . $file_name . '.zip';
               move_uploaded_file($file['tmp_name'], $path);
-              $_SESSION['upload-success'][] = 'Bestand werd succesvol geupload';
-              $_SESSION['upload-next'] = 'Starten met unzippen...';
               header('Location:index.php?page=upload&status=unzip&title=' . $file_name . '&path=' . urlencode($path));
               //exit();
           }else{
-            $_SESSION['error'] = 'Kon geen nieuwe map maken op de server';
+            $error = 'Kon geen nieuwe map maken op de server';
           }
         }else{
-          $_SESSION['error'] = 'Het doorgestuurde bestand is geen zip bestand';
+          $error = 'Het doorgestuurde bestand is geen zip bestand';
         }        
       }else{
-        $_SESSION['upload-error'] = 'Er werd geen bestand doorgestuurd naar de server';
+        $error = 'Er werd geen bestand doorgestuurd naar de server';
       }
     }
     
@@ -58,78 +63,77 @@ class UploadController extends Controller {
       if($_GET['status'] === 'unzip'){
         $zip = new ZipArchive();
         $path = urldecode($_GET['path']);
-          if($zip->open($path)){      
-            $zip->extractTo(dirname($path));
-            $zip->close();
-            $_SESSION['upload-success'][] = 'Bestand is succesvol unzipt';
-            $_SESSION['upload-next'] = 'Bestand met conversatie zoeken...';
-            header('Location:index.php?page=upload&status=search&title=' . $_GET['title'] . '&path=' . urlencode(dirname($path)));
-            //exit();
-          }else{
-            $_SESSION['error'] = 'Kan bestand niet unzippen';
-          }
+        if($zip->open($path)){      
+          $zip->extractTo(dirname($path));
+          $zip->close();
+          header('Location:index.php?page=upload&status=search&title=' . $_GET['title'] . '&path=' . urlencode(dirname($path)));
+          //exit();
+        }else{
+          $error = 'Kan bestand niet unzippen';
+        }
       }
 
-      // Step 3: check if the unzipped file contains a txt or json file
+      // Step 3: check if the unzipped file contains a txt file
       if($_GET['status']=== 'search'){
         $path = urldecode($_GET['path']);
-        $files = array_merge(glob($path . '/*.txt'),glob($path . '/*/*.txt'),glob($path . '/*.json'),glob($path . '/*/*.json'));
+        $files = array_merge(glob($path . '/*.txt'),glob($path . '/*/*.txt'));
         
         if(count($files) === 1){
-          $_SESSION['upload-success'][] = 'Bestand met conversatie is succesvol gevonden';
-          $_SESSION['upload-next'] = 'Parsen van de conversatie';
           header('Location:index.php?page=upload&status=parse&title=' . $_GET['title'] . '&path=' . urlencode($files[0]));
           //exit();
         }else{
-          $_SESSION['error'] = 'Kan geen bestand met conversatie vinden.';
+          $error = 'Kan geen tekstbestand met de conversatie vinden.';
         }
       }
 
       // Step 4: parse the txt or json file
       if($_GET['status'] === 'parse'){
         $path = urldecode($_GET['path']);
-        echo $path;
-        
+       
         $type = pathinfo($path)['extension'];
         if($type === 'txt'){
-          $this->convertTxtFileToArray($path);
-        }
-        if($type === 'json'){
-          $file = file_get_contents($path);
-          $data = json_decode($file,true);
-          
-        }
+          try{
+            $messages = $this->parser->parseFile($path);
+            $this->insertNewConversation($_GET['title'], dirname($path), $messages);
+          } catch(Exception $e){
+            $error = $e->getMessage();
+          }
 
-        var_dump($data);
-        $insertedConversation = $this->conversationDAO->insertConversation(array('title' => $_GET['title'], 'path' => dirname($path)));
-        if(!$insertedConversation){
-           $_SESSION['error'] = 'Niet gelukt';
-        }else{
-          var_dump($insertedConversation);
+          $success = 'Het bestand werd correct naar de server verzonden';
+
+          $this->set('parsed_lines', $messages['parsed_lines']);
+          $this->set('error_lines',$messages['error_lines']);
         }
 
         // TODO: eventueel de zip file nog dumpen?
       }
     }
     
-    // in case of error: redirect to fail state
-    //header('Location:index.php?page=upload&status=fail');
-    //exit();
+    $this->set('success', $success);
+    $this->set('error',$error);
+    
   }
 
-  private function convertTxtFileToArray($path){
-    $file = fopen($path, 'r');
-    $lines = [];
-    while(!feof($file)){
-      $line = fgets($file);
-      $lines[] = $line;
+  private function insertNewConversation($title, $path, $messages){
+    // inserting a new conversation line
+    $insertedConversation = $this->conversationDAO->insertConversation(array('title' => $title, 'path' => $path));
+    if($insertedConversation){
+      // loop over the messages
+      foreach($messages['parsed_lines'] as $message){
+        $insertedMessage = $this->messageDAO->insertMessage($insertedConversation['id'],$message);
+        if($insertedMessage){      
+          // insert media if present
+          if(count($message['media']) > 0){
+            $insertedMedia = $this->mediaDAO->insertMedia($insertedConversation['id'], $insertedMessage['id'], $message['media']);
+          }
+          // insert emoji if present   
+          if(count($message['emojis']) > 0){
+            foreach($message['emojis'] as $emoji){
+              $insertedEmoji = $this->emojiDAO->insertEmoji($insertedConversation['id'], $insertedMessage['id'], $emoji);
+            }
+          }
+        }
+      }  
     }
-    fclose($file);
-    //var_dump($lines);
-
-    // export met Android: koppelteken (- ) tussen datum en boodschap
-    // export met iOS: vierkante haakjes [] met daartussen datum en boodschapo
-    // Daarna telkens gebruiker en een dubbel punt
-    // TODO: export functies schrijven -> resultaat moet een assoc array zijn
   }
 }
